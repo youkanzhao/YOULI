@@ -31,6 +31,7 @@ public class ExcelUtil {
 			File finalXlsxFile = new File(finalXlsxPath);
 
 			Workbook workBook = getWorkbok(finalXlsxFile);
+			
 			// sheet 对应一个工作页
 			Sheet sheet = workBook.createSheet();
 			/**
@@ -59,7 +60,6 @@ public class ExcelUtil {
 
 				for (int k = 0; k <= 15; k++) {
 					// 在一行内循环
-
 					Cell cell = row.createCell(k);
 					String value = "";
 					int width = 10000;
@@ -71,6 +71,7 @@ public class ExcelUtil {
 						break;
 					case 1:
 						value = dataBean.getXiangMuZhongBiaoShiJian();
+						width = 7000;
 						sheet.setColumnWidth(k, width);
 						cell.setCellValue(value);
 						break;
@@ -81,31 +82,37 @@ public class ExcelUtil {
 						break;
 					case 3:
 						value = dataBean.getSuoShuHangYe();
+						width = 8000;
 						sheet.setColumnWidth(k, width);
 						cell.setCellValue(value);
 						break;
 					case 4:
 						value = dataBean.getTouZiGuiMo();
+						width = 7000;
 						sheet.setColumnWidth(k, width);
 						cell.setCellValue(value);
 						break;
 					case 5:
 						value = dataBean.getXiangMuQuYuGuiMo();
+						width = 7000;
 						sheet.setColumnWidth(k, width);
 						cell.setCellValue(value);
 						break;
 					case 6:
 						value = dataBean.getHeZuoQi();
+						width = 6000;
 						sheet.setColumnWidth(k, width);
 						cell.setCellValue(value);
 						break;
 					case 7:
 						value = dataBean.getYunZuoMoShi();
+						width = 6000;
 						sheet.setColumnWidth(k, width);
 						cell.setCellValue(value);
 						break;
 					case 8:
 						value = dataBean.getFuFeiFangShi();
+						width = 8000;
 						sheet.setColumnWidth(k, width);
 						cell.setCellValue(value);
 						break;
@@ -126,7 +133,7 @@ public class ExcelUtil {
 						break;
 					case 12:
 						value = dataBean.getXiangMuGaiKuang();
-						value = value.replaceAll("</p>", "/r/n");
+						value = value.replaceAll("</?[^>]+>", "");
 						
 						sheet.setColumnWidth(k, width);
 						cell.setCellValue(new HSSFRichTextString(value));
@@ -134,18 +141,28 @@ public class ExcelUtil {
 					case 13:
 						List<String> list = dataBean.getZhongBiaoRen();
 						sheet.setColumnWidth(k, width);
-						cell.setCellValue(value);
-						value = "中标人" + list.size();
+						
+						value = String.join(",", list);
+						cell.setCellValue(new HSSFRichTextString(value));
+						
 						break;
 					case 14:
-						value = "标的";
+						List<Map<String, String>> biaoDiList = dataBean.getBiaoDi();
+						
+						for(Map<String, String> map : biaoDiList) {
+							value += "【" + map.get("name") + ":" + map.get("value") + "】";
+						}
+						
 						sheet.setColumnWidth(k, width);
-						cell.setCellValue(value);
+						cell.setCellValue(new HSSFRichTextString(value));
 						break;
 					case 15:
-						value = "附件";
+						List<Map<String, String>> fuJianList = dataBean.getFuJian();
+						for(Map<String, String> map : fuJianList) {
+							value += "【" + map.get("name") + ":" + map.get("url") + "】";
+						}
 						sheet.setColumnWidth(k, width);
-						cell.setCellValue(value);
+						cell.setCellValue(new HSSFRichTextString(value));
 						break;
 					}
 					
@@ -174,6 +191,7 @@ public class ExcelUtil {
 		Row row = sheet.createRow(0);
 		// 得到要插入的每一条记录
 		CellStyle cellStyle = workBook.createCellStyle();
+		
 		// 设置字体
 		Font font = workBook.createFont();
 		font.setFontHeightInPoints((short) 14); // 字体高度

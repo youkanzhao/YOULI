@@ -67,10 +67,10 @@ public class DataUtil {
 		CloseableHttpClient client = HttpClients.createDefault();
 
 		try {
-			refreshToken(client);
+			refreshToken(client, 1);
 			setContext();
-//			getPPPData(client);
-			getPPPDataFromLocal();
+			getPPPData(client);
+//			getPPPDataFromLocal();
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -104,7 +104,8 @@ public class DataUtil {
 		
 	}
 
-	private static void refreshToken(CloseableHttpClient client) {
+	private static void refreshToken(CloseableHttpClient client, int index) {
+		index = index % 5 + 1;
 		client = HttpClients.createDefault();
 		HttpResponse httpResponse = null;
 		HttpOptions httpOptions = new HttpOptions(LOGIN_URL);
@@ -134,9 +135,9 @@ public class DataUtil {
 		Map parameterMap = new HashMap();
 
 		parameterMap.put("password", "123456");
-		parameterMap.put("serial", "T108130323");
-		parameterMap.put("tenant_id", "T108130323");
-		parameterMap.put("user_name", "user1");
+		parameterMap.put("serial", "test");
+		parameterMap.put("tenant_id", "test");
+		parameterMap.put("user_name", "user" + index);
 
 		try {
 			// 执行post请求
@@ -251,13 +252,28 @@ public class DataUtil {
 
 	public static void getPPPData(CloseableHttpClient client) {
 		try {
-//			getInitData();
 			String[] ids = getInitListData();
+			
+			int index = 1;
+			int userIndex = 1;
 			for(String id : ids) {
-				File file = new File(TARGET_DATA_PATH +"data" + File.separator + id + ".json");
-				if(!file.exists()) {
-					getDetailData(client, id);
+				File file = new File(TARGET_DATA_PATH + "data" + File.separator + id + ".json");
+				if(file.exists()) {
+					String content = FileUtils.readFileToString(file, "UTF-8");
+					JSONObject json = JSONObject.fromObject(content);
+					parseToBean(json);
 				}
+				else {
+					index++;
+					if (index % 5 == 0) {
+						userIndex++;
+						refreshToken(client, userIndex);
+					}
+					getDetailData(client, id);
+					Thread.sleep(20 * 1000);
+				}
+				
+				
 				
 			}
 			writeToExcel();
@@ -420,6 +436,9 @@ public class DataUtil {
 					bean.setTouZiGuiMo(touZiGuiMo);
 
 					String xiangMuQuYuGuiMo = target.getString("region_scale");
+					if("null".equals(xiangMuQuYuGuiMo)) {
+						xiangMuQuYuGuiMo = "-";
+					}
 					bean.setXiangMuQuYuGuiMo(xiangMuQuYuGuiMo);
 
 					String heZuoQi = target.getString("cooperation_phase");
@@ -457,21 +476,49 @@ public class DataUtil {
 			}
 		}
 	}
-
+	
+	public static String decodeUnicode(final String dataStr) {     
+        int start = 0;     
+        int end = 0;     
+        final StringBuffer buffer = new StringBuffer();     
+        while (start > -1) {     
+            end = dataStr.indexOf("\\u", start + 2);     
+            String charStr = "";     
+            if (end == -1) {     
+                charStr = dataStr.substring(start + 2, dataStr.length());     
+            } else {     
+                charStr = dataStr.substring(start + 2, end);     
+            }     
+            char letter = (char) Integer.parseInt(charStr, 16); // 16进制parse整形字符串。     
+            buffer.append(new Character(letter).toString());     
+            start = end;     
+        }     
+        return buffer.toString();     
+     }  
+	
 	private static List<Map<String, String>> getFuJian(JSONObject target) {
 		List<Map<String, String>> result = new ArrayList<Map<String, String>>();
-		// String p = target.getString("notice_url");
-		// JSONArray json = JSONArray.fromObject(p);
-		// if (json.size() > 0) {
-		// int len = json.size();
-		// for (int i = 0; i < len; i++) {
-		// JSONObject temp = (JSONObject) json.get(i);
-		// Map<String, String> map = new HashMap<String, String>();
-		// map.put("name", temp.getString("name"));
-		// map.put("url", temp.getString("url"));
-		// result.add(map);
-		// }
-		// }
+		String p = target.getString("notice_url");
+		p = p.replaceFirst("\"", "");
+		try {
+			
+			JSONArray json = JSONArray.fromObject(p);
+			if (json.size() > 0) {
+				int len = json.size();
+				for (int i = 0; i < len; i++) {
+					JSONObject temp = (JSONObject) json.get(i);
+					Map<String, String> map = new HashMap<String, String>();
+					map.put("name", temp.getString("name"));
+					map.put("url", temp.getString("url"));
+					result.add(map);
+				}
+			}
+		}
+		catch(Exception e) {
+			e.printStackTrace();
+		}
+		
+		
 		return result;
 	}
 
@@ -485,7 +532,12 @@ public class DataUtil {
 				if(temp.containsKey("bid_type")) {
 					JSONObject bidTypeJson = temp.getJSONObject("bid_type");
 					Map<String, String> map = new HashMap<String, String>();
-					map.put("name", bidTypeJson.getString("value"));
+					String name = "";
+					if(bidTypeJson.containsKey("value")){
+						name = bidTypeJson.getString("value");
+					}
+					
+					map.put("name", name);
 					String bidValue = temp.getString("value");
 					JSONObject sysDictionary = temp.getJSONObject("sys_dictionary");
 					if(sysDictionary != null && sysDictionary.containsKey("value")) {
@@ -500,7 +552,7 @@ public class DataUtil {
 				
 			}
 		}
-		return null;
+		return result;
 	}
 
 	private static String getFuFeiFangShi(JSONObject target) {
@@ -536,20 +588,34 @@ public class DataUtil {
 	}
 
 	private static String getCaiGouFangShi(JSONObject target) {
-		String result = "";
-		JSONArray p = target.getJSONArray("procurement_mode");
-		if (p.size() > 0) {
-			result = p.getJSONObject(0).getString("value");
+		String result = "未知";
+		try {
+			if(target.containsKey("procurement_mode")) {
+				JSONArray p = target.getJSONArray("procurement_mode");
+				if (p.size() > 0) {
+					result = p.getJSONObject(0).getString("value");
+				}
+			}
 		}
+		catch(Exception e) {
+//			e.printStackTrace();
+		}
+		
 		return result;
 	}
 
 	private static String getZhaoBiaoDanWei(JSONObject target) {
-		String result = "";
-		JSONArray p = target.getJSONArray("bid_company_id");
-		if (p.size() > 0) {
-			result = p.getJSONObject(0).getString("name");
+		String result = "未知";
+		try {
+			JSONArray p = target.getJSONArray("bid_company_id");
+			if (p.size() > 0) {
+				result = p.getJSONObject(0).getString("name");
+			}
 		}
+		catch(Exception e) {
+//			e.printStackTrace();
+		}
+		
 		return result;
 	}
 
@@ -613,7 +679,7 @@ public class DataUtil {
 			}
 
 			if (page % 5 == 0) {
-				refreshToken(client);
+				refreshToken(client, 1);
 			}
 
 			String url = DATA_URL + page + "&token=" + TOKEN;
