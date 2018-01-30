@@ -1,10 +1,7 @@
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -16,7 +13,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
 import org.apache.http.ParseException;
 import org.apache.http.client.CookieStore;
@@ -37,14 +33,7 @@ import org.apache.http.impl.cookie.BestMatchSpecFactory;
 import org.apache.http.impl.cookie.BrowserCompatSpecFactory;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
-import org.apache.poi.hssf.usermodel.HSSFRow;
-import org.apache.poi.hssf.usermodel.HSSFSheet;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.poifs.filesystem.POIFSFileSystem;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
+
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
@@ -80,7 +69,8 @@ public class DataUtil {
 		try {
 			refreshToken(client);
 			setContext();
-			getPPPData(client);
+//			getPPPData(client);
+			getPPPDataFromLocal();
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -92,6 +82,26 @@ public class DataUtil {
 				e.printStackTrace();
 			}
 		}
+	}
+
+	private static void getPPPDataFromLocal() {
+		try {
+			File file = new File(TARGET_DATA_PATH + "listData.json");
+			String content = FileUtils.readFileToString(file, "UTF-8");
+			JSONArray jsonArr = JSONArray.fromObject(content);
+			int len = jsonArr.size();
+			for(int i = 0; i < len; i++) {
+				JSONObject json = jsonArr.getJSONObject(i);
+				parseListToBean(json);
+			}
+			
+			writeToExcel();
+		}
+		catch(Exception e) {
+			
+		}
+		
+		
 	}
 
 	private static void refreshToken(CloseableHttpClient client) {
@@ -278,7 +288,7 @@ public class DataUtil {
 	}
 
 	private static void saveListDataToDisk(JSONArray listJSON) {
-		File file = new File(TARGET_DATA_PATH + "listData2.json");
+		File file = new File(TARGET_DATA_PATH + "listData.json");
 		StringBuffer sb = new StringBuffer();
 		int len = listJSON.size();
 		for(int i = 0; i < len; i++) {
